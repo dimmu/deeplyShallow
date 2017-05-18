@@ -5,36 +5,29 @@ import pandas as pd
 from binascii import crc32
 import numpy as np
 
+def loadEmo():
+    data=pd.read_csv("data/training.1600000.processed.noemoticon.csv",encoding='latin-1', delimiter=',', header=-1)
+    labels = data[0]
+    text = data[5].get_values()
+    valIdx = np.arange(0, len(labels), 100)
+    testIdx = np.arange(1, len(labels), 100)
+    trainIdx = np.setxor1d(np.arange(0, len(labels)), np.append(valIdx, testIdx))
+    Y = np.zeros((len(labels), 2))
+    Y[labels == 0, 0] = 1
+    Y[labels == 4, 1] = 1
+    trainText = text[trainIdx]
+    valText = text[valIdx]
+    testText = text[testIdx]
+    #make labels
+    trainY = Y[trainIdx]
+    valY = Y[valIdx]
+    testY = Y[testIdx]
+    return (trainText, trainY, valText, valY, testText, testY)
 
-data=pd.read_csv("data/training.1600000.processed.noemoticon.csv", encoding='latin-1', delimiter=',', header=-1)
-labels=data[0]
-text=data[5].get_values()
-
-#test_data=pd.read_csv("data/testdata.manual.2009.06.14.csv",encoding='latin-1', delimiter=',', header=-1)
 
 
-
-valIdx=np.arange(0,len(labels),100)
-testIdx=np.arange(1,len(labels),100)
-trainIdx=np.setxor1d(np.arange(0,len(labels)),np.append(valIdx,testIdx))
-
-Y=np.zeros((len(labels),2))
-Y[labels==0,0]=1
-Y[labels==4,1]=1
-
-trainText=text[trainIdx]
-valText=text[valIdx]
-testText=text[testIdx]
-
-#make labels
-trainY=Y[trainIdx]
-valY=Y[valIdx]
-testY=Y[testIdx]
-
-dims=30000
-
-valX=fastWordVec(valText,dims)
-testX=fastWordVec(testText,dims)
+# valX=fastWordVec(valText,dims)
+# testX=fastWordVec(testText,dims)
 
 
 #vectorize somehow? 
@@ -47,31 +40,31 @@ testX=fastWordVec(testText,dims)
 
 #tri-words
 
-def fastWordVec(txts, num_bags):
-    m = len(txts)
-    rtnIdx=[]
-    rtnVal=[]
-    thisBag={}
-    #tmp = 0
-    for i in range(0,m):
-        tmp=txts[i].split()
-        for j in range(0,len(tmp)): 
-            lala = crc32(bytes(tmp[j], 'UTF-8'))
-            if lala in thisBag:
-                thisBag[lala]+=1
-            else:
-                thisBag[lala]=1
-        for key in thisBag:
-            rtnIdx.append([i,key])
-            rtnVal.append(thisBag[key])
-    return (rtnIdx, rtnVal)
+# def fastWordVec(txts, num_bags):
+#     m = len(txts)
+#     rtnIdx=[]
+#     rtnVal=[]
+#     thisBag={}
+#     #tmp = 0
+#     for i in range(0,m):
+#         tmp=txts[i].split()
+#         for j in range(0,len(tmp)): 
+#             lala = crc32(bytes(tmp[j], 'UTF-8'))
+#             if lala in thisBag:
+#                 thisBag[lala]+=1
+#             else:
+#                 thisBag[lala]=1
+#         for key in thisBag:
+#             rtnIdx.append([i,key])
+#             rtnVal.append(thisBag[key])
+#     return (rtnIdx, rtnVal)
 
 def fastWordVec(txts, num_bags):
     m = len(txts)
     X = np.zeros((m,num_bags))
     #tmp = 0
     for i in range(0,m):
-        tmp=txts[i].split()
+        tmp=txts[i].lower().split()
         for j in range(0,len(tmp)): 
             lala = crc32(bytes(tmp[j], 'UTF-8'))
             X[i][lala%num_bags]+=1
@@ -99,13 +92,13 @@ def windowVec( X, m ):
             print(".")
     return rtn
 
-XXX=[];
-for i in range(0, len(XX)):
-    for j in range(0,len(XX[i])):
-        tmp=XX[i][j]%3000
-        XXX[i][tmp]+=1
-    if i%1000==0:
-        print(".")
+# XXX=[];
+# for i in range(0, len(XX)):
+#     for j in range(0,len(XX[i])):
+#         tmp=XX[i][j]%3000
+#         XXX[i][tmp]+=1
+#     if i%1000==0:
+#         print(".")
 
 
 def expGradient(X,Y,its, eta):
