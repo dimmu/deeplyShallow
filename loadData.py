@@ -24,7 +24,43 @@ def loadEmo():
     testY = Y[testIdx]
     return (trainText, trainY, valText, valY, testText, testY)
 
+def BuildDictionary(docs,threshold=0):
+    rtn = {}
+    for doc in docs:
+        words = doc.lower().split()
+        for word in words:
+            if word in rtn:
+                rtn[word] += 1
+            else:
+                rtn[word] = 1
+    if threshold <= 0:
+        idx = 1
+        for k in rtn:
+            rtn[k] = idx
+            idx += 1
+        return rtn
+    else:
+        idx = 1
+        tmp = {}
+        for key in rtn:
+            if rtn[key] >= threshold:
+                tmp[key] = idx
+                idx += 1
+        return tmp
 
+def VocabVec(texts, vocab, doc_length):
+    rtn = np.zeros((len(texts), doc_length))
+    i = 0
+    for text in texts:
+        words = text.split()
+        j=0
+        for word in words:
+            if word in vocab and j<doc_length:
+                #print("i,j:%d, %d, word: %s",i,j,word)
+                rtn[i][j] = vocab[word]
+            j = j+1
+        i = i+1
+    return rtn
 
 # valX=fastWordVec(valText,dims)
 # testX=fastWordVec(testText,dims)
