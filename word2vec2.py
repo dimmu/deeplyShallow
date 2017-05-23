@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 #word2vec model
 
-class EmbeddingModel(object):
+class EmbeddingModel2(object):
     """
     A CNN for text classification.
     Uses an embedding layer, followed by a convolutional, max-pooling and softmax layer.
@@ -30,12 +30,16 @@ class EmbeddingModel(object):
             #self.agx=tf.reduce_sum(self.embedded_chars, [1])
             self.agx=tf.reshape(self.embedded_chars,[-1,sequence_length*embedding_size])
             print("AGX:",self.embedded_chars.shape)
-            self.dd=tf.nn.dropout(self.agx,dropout_keep_prob)
-            self.w_out=tf.Variable(tf.zeros([embedding_size*sequence_length,num_classes],name="output_w"))
-            self.b = tf.ones([num_classes])
-
+            self.dd=tf.nn.dropout(self.agx,0.5)
+            self.w_mid=tf.Variable(tf.random_uniform([embedding_size*sequence_length,embedding_size],-1.0,1.0),
+                            name="mid_w")
+            self.b_mid = tf.ones([embedding_size])
+            self.d2=tf.nn.dropout( tf.matmul(self.agx, self.w_mid) + self.b_mid,0.5)
+            self.w_out= tf.Variable(tf.zeros([embedding_size,num_classes],name="output_w"))
+            self.b_out= tf.Variable(tf.zeros([num_classes]))
+            
         with tf.name_scope("forward"):
-            logits = tf.matmul(self.agx, self.w_out) + self.b
+            logits = tf.matmul(self.d2, self.w_out)+self.b_out 
             print("logits ",logits.shape)
             self.scores = tf.nn.softmax(logits)
             self.predictions = tf.argmax(self.scores, 1, name="predictions")
@@ -44,7 +48,7 @@ class EmbeddingModel(object):
             losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, 
                                                             labels=self.input_y)
             l2_loss += tf.nn.l2_loss(self.w_out)
-            l2_loss += tf.nn.l2_loss(self.b)
+            l2_loss += tf.nn.l2_loss(self.b_out)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 
         with tf.name_scope("accuracy"):
