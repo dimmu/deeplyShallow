@@ -103,9 +103,10 @@ with tf.Graph().as_default():
         #     filter_size=3,
         #     num_filters=64,
         #     l2_reg_lambda=0.000)
-
-        model= EmbeddingModel2(batch_size=128,sequence_length=20,num_classes=2,
-             vocab_size=len(vocab)+1,embedding_size=50,l2_reg_lambda=0.0001)
+        model= EmbeddingModel(batch_size=128,sequence_length=20,num_classes=2,
+             vocab_size=len(vocab)+1,embedding_size=50,l2_reg_lambda=0.0)
+        # model= EmbeddingModel2(batch_size=128,sequence_length=20,num_classes=2,
+        #      vocab_size=len(vocab)+1,embedding_size=50,l2_reg_lambda=0.0001)
 
         # model = BiLSTM(batch_size=batch_size, times_steps=19,sequence_length=20,num_classes=2,
         #     vocab_size=len(vocab)+1,embedding_size=50,hidden_size=100)
@@ -155,6 +156,4 @@ with tf.Graph().as_default():
             loss_summary = tf.summary.scalar("loss", meanLoss)
             acc_summary = tf.summary.scalar("accuracy", meanAcc)
             dev_summary_op = tf.summary.merge([loss_summary, acc_summary])
-            saver = tf.train.Saver(tf.global_variables(), max_to_keep=25)
-            saver.save(sess,dev_summary_dir+"laala")
-            print("VALIDATION: mean acc: ",meanAcc, "mean loss:",meanLoss)
+            dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
