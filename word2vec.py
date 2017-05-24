@@ -50,3 +50,6 @@ class EmbeddingModel(object):
         with tf.name_scope("accuracy"):
             correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+            #loss_summary=tf.summary.scalar(self.loss)
+            #acc_summary=tf.summary.scalar(self.accuracy)
+            #self.summaries=tf.summary.merge(loss_summary,acc_summary)

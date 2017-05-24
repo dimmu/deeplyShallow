@@ -30,7 +30,7 @@ class EmbeddingModel2(object):
             #self.agx=tf.reduce_sum(self.embedded_chars, [1])
             self.agx=tf.reshape(self.embedded_chars,[-1,sequence_length*embedding_size])
             print("AGX:",self.embedded_chars.shape)
-            self.dd=tf.nn.dropout(self.agx,0.5)
+            self.dd=tf.nn.dropout(tf.nn.relu(self.agx),0.5)
             self.w_mid=tf.Variable(tf.random_uniform([embedding_size*sequence_length,embedding_size],-1.0,1.0),
                             name="mid_w")
             self.b_mid = tf.ones([embedding_size])
