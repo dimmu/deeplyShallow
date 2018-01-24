@@ -106,7 +106,7 @@ with tf.Graph().as_default():
                  l2_reg_lambda=0.000)
         elif modelType == "emb":
             model= EmbeddingModel(batch_size=128,sequence_length=20,num_classes=2,
-                vocab_size=len(vocab)+1,embedding_size=50,l2_reg_lambda=0.00)
+                vocab_size=len(vocab)+1,embedding_size=50,l2_reg_lambda=0.00001)
         elif modelType == "emb2": 
             model= EmbeddingModel2(batch_size=128,sequence_length=20,num_classes=2,
               vocab_size=len(vocab)+1,embedding_size=50,l2_reg_lambda=0.0001)
