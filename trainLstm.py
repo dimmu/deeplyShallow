@@ -14,10 +14,11 @@ from optparse import OptionParser
 from tensorflow.contrib import rnn
 import sonnet as snt
 
-def transform(text, vocab, max_len):
-    rtn = np.zeros((max_len,len(vocab)))
+def transform(text, vocab, max_len=150):
+    rtn = np.zeros((max_len,len(vocab) +1))
     for i,c in enumerate(text):
-        rtn[i,vocab[c]]=1
+        if i<max_len:
+            rtn[i,vocab[c]]=1
     return rtn
 
 class BatchLoader:
@@ -46,7 +47,8 @@ class BatchLoader:
         self.batch = (self.batch+1) % self.max_batch
         rtn = []
         for i in range(start,stop):
-            rtn.append( transform(self.X[i],self.vocab,self.max_len))
+            #rtn.append( transform(self.X[i],self.vocab,self.max_len))
+            rtn.append( transform(self.X[i],self.vocab))
         return (np.array(rtn), self.Y[start:stop])
 
     def reshuffle(self):
@@ -76,11 +78,12 @@ for text in trainText:
 bl = BatchLoader(trainText,trainY,64,vocab,max_len)
 num_classes = 2
 embedding_size=16
-num_hidden=128
+num_hidden=64
 learning_rate=0.001
 batch_size=128
+max_len=150
 
-input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)], name="input_x")
+input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)+1], name="input_x")
 input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 print('input_x', input_x.shape)
 
@@ -94,11 +97,25 @@ def embed(X, embedding_matrix):
 def bilstm(X, namespace='layer_0', return_sequences=False):
         timesteps = max_len
         with tf.variable_scope(namespace):
+            print('INPUT SHAPE', X.shape)
             X = tf.unstack(X, timesteps, 1)
-            lstm_fw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
-            lstm_bw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
-            outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, X,
-                                              dtype=tf.float32)
+
+            #lstm_fw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
+            #lstm_bw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
+            #outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, X,
+            #                                  dtype=tf.float32)
+            #basic_cell = tf.contrib.rnn.BasicRNNCell(num_units=2*num_hidden)
+            #basic_cell = tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
+            n_layers=2
+            layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
+                        for layer in range(n_layers)]
+            multi_layer_cell = tf.contrib.rnn.MultiRNNCell(layers)
+            outputs, states = tf.nn.static_rnn(multi_layer_cell, X, dtype=tf.float32)
+            #print('OUTPUTS:',outputs.shape)
+            #print('states:',states.shape)
+            # layers = 
+            # outputs, states = tf.contrib.rnn.static_rnn(basic_cell, X,
+            #                                     dtype=tf.float32)
         if return_sequences:
             return outputs
         else:
@@ -130,8 +147,8 @@ h_drop = tf.nn.dropout(lstm_state, 0.5)
 prediction = tf.nn.softmax(tf.matmul(h_drop,weights_out)+bias_out)
 loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
     logits=prediction, labels=input_y))
-optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-#optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+#optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 train_op = optimizer.minimize(loss_op)
 
 # Evaluate model (with test logits, for dropout to be disabled)
