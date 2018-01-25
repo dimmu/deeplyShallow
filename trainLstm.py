@@ -15,9 +15,9 @@ from tensorflow.contrib import rnn
 import sonnet as snt
 
 def transform(text, vocab, max_len):
-    rtn = np.zeros((max_len,1))
+    rtn = np.zeros((max_len,len(vocab)))
     for i,c in enumerate(text):
-        rtn[i]=vocab[c]
+        rtn[i,vocab[c]]=1
     return rtn
 
 class BatchLoader:
@@ -80,50 +80,52 @@ num_hidden=128
 learning_rate=0.001
 batch_size=128
 
-input_x = tf.placeholder(tf.int32, [None, max_len], name="input_x")
+input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)], name="input_x")
 input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 print('input_x', input_x.shape)
 
 embedding_matrix = tf.Variable(tf.random_uniform([len(vocab)+1, embedding_size], -1.0, 1.0),name="W")
-weights_out = tf.Variable(tf.random_normal([num_hidden, num_classes]))
+weights_out = tf.Variable(0.01*tf.random_normal([2*num_hidden, num_classes]))
 bias_out = tf.Variable(tf.random_normal([num_classes]))
 
 def embed(X, embedding_matrix):
     return tf.nn.embedding_lookup(embedding_matrix, X)
 
-# def bilstm(X, namespace='layer_0', return_sequences=False):
-#         timesteps = max_len
-#         with tf.variable_scope(namespace):
-#             X = tf.unstack(X, timesteps, 1)
-#             lstm_fw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
-#             lstm_bw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
-#             outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, X,
-#                                               dtype=tf.float32)
-#         if return_sequences:
-#             return outputs
-#         else:
-#             return outputs[-1]
+def bilstm(X, namespace='layer_0', return_sequences=False):
+        timesteps = max_len
+        with tf.variable_scope(namespace):
+            X = tf.unstack(X, timesteps, 1)
+            lstm_fw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
+            lstm_bw_cell = rnn.BasicLSTMCell(num_hidden, forget_bias=1.0)
+            outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, X,
+                                              dtype=tf.float32)
+        if return_sequences:
+            return outputs
+        else:
+            return outputs[-1]
 
-def build_lstm(x, size, trainable=True, reverse=False, 
-                return_sequences=True, name='unroll_lstm'):
-        batch_size = tf.shape(x)[0]
-        lstm = snt.LSTM(size)
-        state = lstm.initial_state(batch_size=batch_size, trainable=trainable)
-        timeseries = tf.unstack(x , axis=1)
-        iterator = reversed(timeseries) if reverse else timeseries
-        h_outs = []
-        for x_t in iterator: 
-            h_out, state = lstm(x_t, state)
-            h_outs.append(h_out)
-        print('h_outs len:',len(h_outs))
-        return h_outs if return_sequences else h_outs[-1]
+# def build_lstm(x, size, trainable=True, reverse=False, 
+#                 return_sequences=True, name='unroll_lstm'):
+#         batch_size = tf.shape(x)[0]
+#         lstm = snt.LSTM(size)
+#         state = lstm.initial_state(batch_size=batch_size, trainable=trainable)
+#         timeseries = tf.unstack(x , axis=1)
+#         iterator = reversed(timeseries) if reverse else timeseries
+#         h_outs = []
+#         for x_t in iterator: 
+#             h_out, state = lstm(x_t, state)
+#             h_outs.append(h_out)
+#         print('h_outs len:',len(h_outs))
+#         return h_outs if return_sequences else h_outs[-1]
 
 
-embeddings = embed(input_x, embedding_matrix)
-#lstm_states = bilstm(embeddings, return_sequences=True)
-#lstm_states = tf.transpose(lstm_states, [1, 0, 2])
-#lstm_state = bilstm(lstm_states,namespace='layer_1')
-lstm_state = build_lstm(embeddings,128, return_sequences=False)
+# embeddings = embed(input_x, embedding_matrix)
+# #lstm_states = bilstm(embeddings, return_sequences=True)
+# #lstm_states = tf.transpose(lstm_states, [1, 0, 2])
+# #lstm_state = bilstm(lstm_states,namespace='layer_1')
+# lstm_state = build_lstm(embeddings,128, return_sequences=False)
+#lstm_state = build_lstm(input_x,128, return_sequences=False)
+lstm_state = bilstm(input_x,namespace='layer_1')
 h_drop = tf.nn.dropout(lstm_state, 0.5)
 prediction = tf.nn.softmax(tf.matmul(h_drop,weights_out)+bias_out)
 loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
