@@ -75,12 +75,12 @@ for text in trainText:
         if c not in vocab:
             vocab[c] = len(vocab)+1
 
-bl = BatchLoader(trainText,trainY,64,vocab,max_len)
+batch_size=128
+bl = BatchLoader(trainText,trainY,batch_size,vocab,max_len)
 num_classes = 2
 embedding_size=16
 num_hidden=64
-learning_rate=0.001
-batch_size=128
+learning_rate=0.003
 max_len=150
 
 input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)+1], name="input_x")
@@ -107,7 +107,9 @@ def bilstm(X, namespace='layer_0', return_sequences=False):
             #basic_cell = tf.contrib.rnn.BasicRNNCell(num_units=2*num_hidden)
             #basic_cell = tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
             n_layers=2
-            layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
+            # layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
+            #             for layer in range(n_layers)]
+            layers = [tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
                         for layer in range(n_layers)]
             multi_layer_cell = tf.contrib.rnn.MultiRNNCell(layers)
             outputs, states = tf.nn.static_rnn(multi_layer_cell, X, dtype=tf.float32)
@@ -144,6 +146,7 @@ def bilstm(X, namespace='layer_0', return_sequences=False):
 #lstm_state = build_lstm(input_x,128, return_sequences=False)
 lstm_state = bilstm(input_x,namespace='layer_1')
 h_drop = tf.nn.dropout(lstm_state, 0.5)
+
 prediction = tf.nn.softmax(tf.matmul(h_drop,weights_out)+bias_out)
 loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
     logits=prediction, labels=input_y))
@@ -178,6 +181,9 @@ with tf.Session() as sess:
     #     Y: Y_test,
     # }
     for epoch in range(epochs):
+        epoch_average_acc=0.0
+        epoch_average_loss=0.0
+        av_counter = 0
         bl.reshuffle()
         for step in range(training_steps):
           
@@ -188,9 +194,17 @@ with tf.Session() as sess:
             # Calculate batch loss and accuracy
             
                 loss, acc = sess.run([loss_op, accuracy], feed_dict={input_x: np.squeeze(x_batch), input_y: y_batch})
-                print("Step " + str(step) + ", Minibatch Loss= " + \
-                  "{:.4f}".format(loss) + ", Training Accuracy= " + \
-                  "{:.3f}".format(acc))
+                if av_counter == 0:
+                    epoch_average_acc = acc
+                    epoch_average_loss = loss
+                    av_counter+=1
+                else:
+                    epoch_average_acc = (av_counter*epoch_average_acc + acc)/(av_counter+1)
+                    epoch_average_loss = (av_counter*epoch_average_loss + loss)/(av_counter+1)
+                    av_counter+=1
+                print("Step " + str(step) + ", Avg Loss= " + \
+                  "{:.4f}".format(epoch_average_loss) + ", Avg Accuracy= " + \
+                  "{:.3f}".format(epoch_average_acc))
                 
 
         print("Optimization Finished!")
