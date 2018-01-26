@@ -15,11 +15,24 @@ from tensorflow.contrib import rnn
 import sonnet as snt
 
 def transform(text, vocab, max_len=150):
+    #rtn = np.zeros((max_len,1))
+    rtn = []
+    for i,c in enumerate(text):
+        if i<max_len:
+            rtn.append(ord(c))
+            #rtn[i]=ord[c]
+    if i<max_len:
+        for i in range(i+1,max_len):
+            rtn.append(0)
+    return rtn
+
+def transform_one_hot(text, vocab, max_len=150):
     rtn = np.zeros((max_len,len(vocab) +1))
     for i,c in enumerate(text):
         if i<max_len:
             rtn[i,vocab[c]]=1
     return rtn
+
 
 class BatchLoader:
     
@@ -83,11 +96,12 @@ num_hidden=64
 learning_rate=0.003
 max_len=150
 
-input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)+1], name="input_x")
+#input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)+1], name="input_x")
+input_x = tf.placeholder(tf.int32, [None, max_len], name="input_x")
 input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 print('input_x', input_x.shape)
 
-embedding_matrix = tf.Variable(tf.random_uniform([len(vocab)+1, embedding_size], -1.0, 1.0),name="W")
+embedding_matrix = tf.Variable(tf.random_uniform([512, embedding_size], -1.0, 1.0),name="W")
 weights_out = tf.Variable(0.01*tf.random_normal([2*num_hidden, num_classes]))
 bias_out = tf.Variable(tf.random_normal([num_classes]))
 
@@ -106,7 +120,7 @@ def bilstm(X, namespace='layer_0', return_sequences=False):
             #                                  dtype=tf.float32)
             #basic_cell = tf.contrib.rnn.BasicRNNCell(num_units=2*num_hidden)
             #basic_cell = tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
-            n_layers=1
+            n_layers=2
             # layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
             #             for layer in range(n_layers)]
             layers = [tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
@@ -141,13 +155,13 @@ def bilstm(X, namespace='layer_0', return_sequences=False):
 #         return h_outs if return_sequences else h_outs[-1]
 
 
-# embeddings = embed(input_x, embedding_matrix)
+embeddings = embed(input_x, embedding_matrix)
 # #lstm_states = bilstm(embeddings, return_sequences=True)
 # #lstm_states = tf.transpose(lstm_states, [1, 0, 2])
 # #lstm_state = bilstm(lstm_states,namespace='layer_1')
 # lstm_state = build_lstm(embeddings,128, return_sequences=False)
 #lstm_state = build_lstm(input_x,128, return_sequences=False)
-lstm_state = bilstm(input_x,namespace='layer_1')
+lstm_state = bilstm(embeddings,namespace='layer_1')
 h_drop = tf.nn.dropout(lstm_state, 0.5)
 
 prediction = tf.nn.softmax(tf.matmul(h_drop,weights_out)+bias_out)
