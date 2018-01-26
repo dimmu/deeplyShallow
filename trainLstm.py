@@ -106,12 +106,15 @@ def bilstm(X, namespace='layer_0', return_sequences=False):
             #                                  dtype=tf.float32)
             #basic_cell = tf.contrib.rnn.BasicRNNCell(num_units=2*num_hidden)
             #basic_cell = tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
-            n_layers=2
+            n_layers=1
             # layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
             #             for layer in range(n_layers)]
             layers = [tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
                         for layer in range(n_layers)]
-            multi_layer_cell = tf.contrib.rnn.MultiRNNCell(layers)
+            layers_drop = [tf.contrib.rnn.DropoutWrapper(layer, input_keep_prob=0.5)
+              for layer in layers]
+
+            multi_layer_cell = tf.contrib.rnn.MultiRNNCell(layers_drop)
             outputs, states = tf.nn.static_rnn(multi_layer_cell, X, dtype=tf.float32)
             #print('OUTPUTS:',outputs.shape)
             #print('states:',states.shape)
