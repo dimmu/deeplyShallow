@@ -88,7 +88,7 @@ batch_size=128
 bl = BatchLoader(trainText,trainY,batch_size,vocab,max_len)
 num_classes = 2
 embedding_size=20
-num_hidden=64
+num_hidden=128
 learning_rate=0.003
 max_len=150
 
@@ -108,7 +108,7 @@ def embed(X, embedding_matrix):
     return tf.nn.embedding_lookup(embedding_matrix, X)
 
 def bilstm(X, namespace='layer_0', return_sequences=False, dropout_pc=0.0, 
-            bidirectional = True, n_layers=2):
+            bidirectional = True, n_layers=1):
         timesteps = max_len
         with tf.variable_scope(namespace):
             print('INPUT SHAPE', X.shape)
@@ -120,7 +120,7 @@ def bilstm(X, namespace='layer_0', return_sequences=False, dropout_pc=0.0,
             #                                  dtype=tf.float32)
             #basic_cell = tf.contrib.rnn.BasicRNNCell(num_units=2*num_hidden)
             #basic_cell = tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
-            n_layers=2
+            #n_layers=2
             # layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
             #             for layer in range(n_layers)]
             layers_fw = [tf.contrib.rnn.GRUCell(num_units=num_hidden)
@@ -224,4 +224,7 @@ with tf.Session() as sess:
                 
 
         print("Optimization Finished!")
+        learning_rate = 0.01 * learning_rate
+        #optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         #print("Validation Accuracy:", sess.run(accuracy, feed_dict=val_dict))
