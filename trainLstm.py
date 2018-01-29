@@ -73,10 +73,6 @@ class BatchLoader:
 
 (trainText, trainY, valText, valY, testText, testY) = loadEmo()
 
-#make a smaller subset for debugging
-# subset=list(range(0,len(trainY),20 ))
-# trainText=trainText[subset]
-# trainY=trainY[subset]
 
 #padding stuff
 max_len = 0
@@ -91,10 +87,12 @@ for text in trainText:
 batch_size=128
 bl = BatchLoader(trainText,trainY,batch_size,vocab,max_len)
 num_classes = 2
-embedding_size=16
+embedding_size=20
 num_hidden=64
 learning_rate=0.003
 max_len=150
+
+num_relu_weights=128
 
 #input_x = tf.placeholder(tf.float32, [None, max_len,len(vocab)+1], name="input_x")
 input_x = tf.placeholder(tf.int32, [None, max_len], name="input_x")
@@ -102,13 +100,15 @@ input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 print('input_x', input_x.shape)
 
 embedding_matrix = tf.Variable(tf.random_uniform([512, embedding_size], -1.0, 1.0),name="W")
-weights_out = tf.Variable(0.01*tf.random_normal([2*num_hidden, num_classes]))
+relu_weights = tf.Variable(0.01*tf.random_normal([2*num_hidden, num_relu_weights]))
+weights_out = tf.Variable(0.01*tf.random_normal([num_relu_weights, num_classes]))
 bias_out = tf.Variable(tf.random_normal([num_classes]))
-
+bias_relu = tf.Variable(tf.random_normal([num_relu_weights]))
 def embed(X, embedding_matrix):
     return tf.nn.embedding_lookup(embedding_matrix, X)
 
-def bilstm(X, namespace='layer_0', return_sequences=False):
+def bilstm(X, namespace='layer_0', return_sequences=False, dropout_pc=0.0, 
+            bidirectional = True, n_layers=2):
         timesteps = max_len
         with tf.variable_scope(namespace):
             print('INPUT SHAPE', X.shape)
@@ -123,36 +123,33 @@ def bilstm(X, namespace='layer_0', return_sequences=False):
             n_layers=2
             # layers = [tf.contrib.rnn.BasicLSTMCell(num_units=2*num_hidden)
             #             for layer in range(n_layers)]
-            layers = [tf.contrib.rnn.GRUCell(num_units=2*num_hidden)
+            layers_fw = [tf.contrib.rnn.GRUCell(num_units=num_hidden)
                         for layer in range(n_layers)]
-            layers_drop = [tf.contrib.rnn.DropoutWrapper(layer, input_keep_prob=0.5)
-              for layer in layers]
 
-            multi_layer_cell = tf.contrib.rnn.MultiRNNCell(layers_drop)
-            outputs, states = tf.nn.static_rnn(multi_layer_cell, X, dtype=tf.float32)
+            layers_bw = [tf.contrib.rnn.GRUCell(num_units=num_hidden)
+                        for layer in range(n_layers)]
+            if dropout_pc>0.001 and dropout_pc <0.999:
+                layers_fw = [tf.contrib.rnn.DropoutWrapper(layer, input_keep_prob=dropout_pc)
+                            for layer in layers_fw]
+                layers_bw = [tf.contrib.rnn.DropoutWrapper(layer, input_keep_prob=dropout_pc)
+                            for layer in layers_bw]
+            else:
+                print("NO DROPOUT")
+            multi_layer_cell_fw = tf.contrib.rnn.MultiRNNCell(layers_fw)
+            multi_layer_cell_bw = tf.contrib.rnn.MultiRNNCell(layers_bw)
+            #outputs, states = tf.nn.static_rnn(multi_layer_cell, X, dtype=tf.float32)
+            outputs, states, _ = rnn.static_bidirectional_rnn(multi_layer_cell_fw,
+                                                        multi_layer_cell_bw, X,
+                                                        dtype=tf.float32)
             #print('OUTPUTS:',outputs.shape)
             #print('states:',states.shape)
-            # layers = 
+            # layers =
             # outputs, states = tf.contrib.rnn.static_rnn(basic_cell, X,
             #                                     dtype=tf.float32)
         if return_sequences:
             return outputs
         else:
             return outputs[-1]
-
-# def build_lstm(x, size, trainable=True, reverse=False, 
-#                 return_sequences=True, name='unroll_lstm'):
-#         batch_size = tf.shape(x)[0]
-#         lstm = snt.LSTM(size)
-#         state = lstm.initial_state(batch_size=batch_size, trainable=trainable)
-#         timeseries = tf.unstack(x , axis=1)
-#         iterator = reversed(timeseries) if reverse else timeseries
-#         h_outs = []
-#         for x_t in iterator: 
-#             h_out, state = lstm(x_t, state)
-#             h_outs.append(h_out)
-#         print('h_outs len:',len(h_outs))
-#         return h_outs if return_sequences else h_outs[-1]
 
 
 embeddings = embed(input_x, embedding_matrix)
@@ -162,7 +159,9 @@ embeddings = embed(input_x, embedding_matrix)
 # lstm_state = build_lstm(embeddings,128, return_sequences=False)
 #lstm_state = build_lstm(input_x,128, return_sequences=False)
 lstm_state = bilstm(embeddings,namespace='layer_1')
-h_drop = tf.nn.dropout(lstm_state, 0.5)
+lstm_drop = tf.nn.dropout(lstm_state, 0.5)
+relu_out = tf.nn.relu(tf.matmul(lstm_drop,relu_weights)+bias_relu)
+h_drop = tf.nn.dropout(relu_out,0.5)
 
 prediction = tf.nn.softmax(tf.matmul(h_drop,weights_out)+bias_out)
 loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
